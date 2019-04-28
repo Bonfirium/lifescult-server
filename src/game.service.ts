@@ -1,24 +1,27 @@
-import Game from "./game";
+import Game from "lifescult-lib";
 import { sendToUser, userIsConnected } from "./socket";
 
-interface UserInfo { game: Game; }
+interface UserInfo {
+	game: Game;
+	player: number;
+}
 
-const users: { [userId: string]: UserInfo } = {};
-const activeGames: Set<Game> = new Set();
+const userInfoById: { [userId: string]: UserInfo } = {};
 
 let unallocatedUserId: string | null = null;
 
 export function findGame(userId: string) {
-	if (users[userId]) throw new Error('game already found');
+	if (userInfoById[userId]) throw new Error('game already found');
 	if (!unallocatedUserId || !userIsConnected(unallocatedUserId)) unallocatedUserId = userId;
 	else {
 		const game = new Game();
-		activeGames.add(game);
-		for (const { userId: _userId, first_step, starting_hand } of [
-			{ userId: unallocatedUserId, first_step: true, starting_hand: game.hand1 },
-			{ userId: userId, first_step: false, starting_hand: game.hand2 },
-		]) {
-			sendToUser(_userId, 'game_found', { first_step, starting_hand: starting_hand.map((card) => card.id) });
+		userInfoById[unallocatedUserId] = { game, player: 0 };
+		userInfoById[userId] = { game, player: 1 };
+		for (let player = 0; player < 2; player++) {
+			sendToUser(player === 0 ? unallocatedUserId : userId, 'game_found', {
+				first_step: player === game.playerMove,
+				starting_hand: game.hands[player],
+			});
 		}
 	}
 }
